@@ -10,21 +10,27 @@ dht11 DHT11;
 #define DHT11PIN 2 
 #include <Wire.h> 
 #include <stdio.h>
-#include "LiquidCrystal_I2C.h" 
+#include<stdlib.h>
+#include "LiquidCrystal_I2C.h"
+#define _SS_MAX_RX_BUFF 128 // RX buffer size 
 SoftwareSerial mySerial(4, 3);
 int ledStatus = 1;
 unsigned long ledOn=2000,ledOff=2000; 
 //实例化一个对象并设置LCD1602设备地址，这里的地址是0x3F，一般是0x20，或者0x27
 LiquidCrystal_I2C lcd(0x27,16,2);  
 String comdata = "";
-char *NumBuf[] = {"0030","0031","0032","0033","0034","0035","0036","0037","0038","0039"};
-char  *RH_TM_Buf = "5EA64E3AFF1A";
-//0891683110908705F0040D91688146255844F50008022011413452230873AF58834FE1606F
 
+char *NumBuf[] = {"0030","0031","0032","0033","0034","0035","0036","0037","0038","0039"};
+char  *RH_TM_Buf = "5EA64E3AFF1A";//中文  度为:  的编码 
+char buff[] ="0891683110900805F011000D91688146255844F50008AA";//短信中心的编码//后面加数据长度和数据即可
+
+//0891683110908705F0040D91688146255844F50008022011413452230873AF58834FE1606F
+char _16[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 void setup()
 {
   Serial.begin(9600);
-mySerial.begin(9600);GSM_init();    
+mySerial.begin(9600);
+GSM_init();    
   lcd.init();                  
   lcd.backlight();  
          
@@ -56,30 +62,39 @@ void loop()
           ledStatus=1;
          }
       }
-   if( Serial_Save() >= 0)
+   if( MySerial_Save(1) >= 0)
    {
-    if(Serial_Find("+CMT") == 0)
+    if(Serial_Find(comdata,"+CMT") == 0)
     {
-       if(Serial_Find("73AF58834FE1606F") == 0)
+       if(Serial_Find(comdata,"73AF58834FE1606F") == 0)
        {
-        Send_Sms(NULL,35);
+        //组包
+        //
+        char buf[200] = "";
+       Send_Sms(buf,Make_Sms(buf));
+       }
+       else if(Serial_Find(comdata,"73AF58834FE1606F") == 0)
+       {
+        
        }
     }
     Serial.println(comdata);
     comdata = "";
    }
-    if (mySerial.available())
-
+    
+    
+  if( MySerial_Save(2) >= 0){
+    
+    if(Serial_Find(comdata,"SEND") == 0)
     {
-   // Serial.write(comdata);
-    
-      
-    }
-    
-  if (Serial.available())
-    mySerial.write(Serial.read());
-    
+        char buf[200] = "";
+         
+       Send_Sms(buf,Make_Sms(buf));
+       }
+       mySerial.println(comdata);
+    comdata = "";
   
+}
 }
  void timerIsr()//定时器中断处理函数
 {
@@ -97,10 +112,12 @@ void GSM_init()
   {
     delay(100);
   }
-  Second_AT_Command("ATE0\n","OK",3000);
+  delay(10000);
+ Second_AT_Command("ATE0\n","OK",3000);
   Second_AT_Command("AT+CNMI=3,2,0,0,0\n","OK",3000);
    
 Second_AT_Command("AT+CMGF=0\n","OK",3000);
+Second_AT_Command("AT+CPMS=\"SM\",\"SM\",\"SM\"\n","OK",3000);
 //Second_AT_Command("AT+CMGS=35\n",">",3000);
 //mySerial.write("0891683110900805F011000D91688146255844F50008AA144F604ED659884E86969458C176845FEB70B9505A");
 //mySerial.write(0x1a);
@@ -143,22 +160,21 @@ int Serial_Init_Find(char *Back,unsigned int OutTime)
   }
   return -1; 
 }
-int Serial_Find(char *Back)
+int Serial_Find(String comdata,char *Back)
 {
-  
- 
-   
       if(comdata.indexOf(Back)!=-1)
       {
-       Serial.println("收到预定目标");
-       Serial.write(Back);
-        return 0;
+       
+       //Serial.write(Back);
+       return 0;
       }   
-  
   return -1; 
 }
-int Serial_Save()
+
+int MySerial_Save(int type)
 {
+  if(type == 1)
+  {
   if (mySerial.available())
 
     { 
@@ -175,15 +191,71 @@ int Serial_Save()
       
     }
     return -1;
-}
+  }
+  else if(type == 2)
+  {
+   if (Serial.available())
 
+    { 
+      while (Serial.available() > 0)  
+    {
+        comdata += char(Serial.read());
+        delay(2);
+    }
+    if (comdata.length() > 0)
+    {
+        return 1;
+        
+    }
+      
+    }
+    return -1; 
+  }
+}
 int Send_Sms(char *sms,int len)
 {
   char buf[12]="";
   sprintf(buf,"AT+CMGS=%d\n",len);
   if(Second_AT_Command(buf,">",3000) == 0)
   {
-    mySerial.write("0891683110900805F011000D91688146255844F50008AA144F604ED659884E86969458C176845FEB70B9505A");
-    mySerial.write(0x1A);
+    buf[strlen(buf)] = '\0';
+    mySerial.write(sms);
+    mySerial.write(0x1a);
   }
+}
+
+int Make_Sms(char *buf)
+{
+        char TM[9] = "";
+        char RH[9] = "";
+        if(DHT11.humidity/10 == 0)
+        {
+            sprintf(RH,"%s",NumBuf[DHT11.humidity%10]);
+        }
+        else 
+        {
+          sprintf(RH,"%s%s",NumBuf[DHT11.humidity/10],NumBuf[DHT11.humidity%10]);
+        }
+        if(DHT11.temperature/10 == 0)
+        {
+            sprintf(TM,"%s",NumBuf[DHT11.temperature%10]);
+        }
+        else 
+        {
+          sprintf(TM,"%s%s",NumBuf[DHT11.temperature/10],NumBuf[DHT11.temperature%10]);
+        }
+        
+      char bufc[80] = "";
+        sprintf(bufc,"6E7F%s%s6E29%s%s",RH_TM_Buf,RH,RH_TM_Buf,TM);
+         int tmp = strlen(bufc)/2;
+        char bufp[10] = "";
+        sprintf(bufp,"%c%c",_16[tmp/16],_16[tmp%16]);
+        
+         sprintf(buf,"%s%s%s",buff,bufp,bufc);
+  Serial.println(tmp);
+  Serial.write(_16[tmp/16]); 
+  Serial.write(_16[tmp%16]);
+  
+  Serial.println((String(buf).length()-18)/2);
+return (strlen(buf)-18)/2;
 }
