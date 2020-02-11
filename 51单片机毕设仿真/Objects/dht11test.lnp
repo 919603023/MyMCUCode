@@ -1,0 +1,4 @@
+".\Objects\STARTUP.obj",
+".\Objects\dht11test.obj" 
+TO ".\Objects\dht11test" RTX51 
+PRINT(".\Listings\dht11test.m51")

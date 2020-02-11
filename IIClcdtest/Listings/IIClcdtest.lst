@@ -1,0 +1,271 @@
+C51 COMPILER V9.54   IICLCDTEST                                                            02/10/2020 13:20:54 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE IICLCDTEST
+OBJECT MODULE PLACED IN .\Objects\IIClcdtest.obj
+COMPILER INVOKED BY: D:\Apps\Keil\C51\BIN\C51.EXE IIClcdtest.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\IIClcdtest.lst) TABS(2) OBJECT(.\Objects\IIClcdtest.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          sbit SCL = P2^0;
+   4          sbit SDA = P2^1;
+   5          bit ack;
+   6          sbit RS=P2^0;
+   7          sbit Rw=P2^1;
+   8          sbit E =P2^2;
+   9          sbit button1 =P1^0;
+  10          
+  11          unsigned char LCD_data;
+  12          unsigned char code digit[ ]={"0123456789"}; //定义字符数组显示数字
+  13          /*
+  14            bt0=date&0x01;
+  15            bt1=date&0x02;
+  16            bt2=date&0x04;
+  17            bt3=date&0x08;
+  18            bt4=date&0x10;
+  19            bt5=date&0x20;
+  20            bt6=date&0x40;
+  21            bt7=date&0x80;
+  22          */
+  23          //*****************延时************************
+  24          void delay_nus(unsigned int n) //N us延时函数
+  25          {
+  26   1        unsigned int i=0;
+  27   1          for (i=0;i<n;i++)
+  28   1            _nop_();
+  29   1      }
+  30          void delay_nms(unsigned int n) //N ms延时函数
+  31          {
+  32   1        unsigned int i,j;
+  33   1          for (i=0;i<n;i++)
+  34   1            for (j=0;j<1140;j++);
+  35   1      }
+  36          
+  37          void nop4()
+  38          {
+  39   1         _nop_();     //等待一个机器周期
+  40   1         _nop_();     //等待一个机器周期
+  41   1         _nop_();     //等待一个机器周期
+  42   1         _nop_();     //等待一个机器周期
+  43   1      }
+  44          //***************************************88
+  45          void Start()
+  46          {
+  47   1        SDA=1;
+  48   1          _nop_();
+  49   1          SCL=1;
+  50   1        nop4();
+  51   1          SDA=0;
+  52   1        nop4();
+  53   1          SCL=0;
+  54   1          _nop_();
+C51 COMPILER V9.54   IICLCDTEST                                                            02/10/2020 13:20:54 PAGE 2   
+
+  55   1        _nop_();
+  56   1      }
+  57          
+  58          void Stop()
+  59          {
+  60   1        SDA=0;
+  61   1          _nop_();  
+  62   1      
+  63   1        SCL=0;
+  64   1        nop4();//>4us后SCL跳变
+  65   1        SCL=1;
+  66   1        nop4();
+  67   1        SDA=1;
+  68   1          _nop_();
+  69   1          _nop_();
+  70   1      }
+  71          //******************************************
+  72          void  Write_A_Byte(unsigned char c)
+  73          {
+  74   1       unsigned char BitCnt;
+  75   1        for(BitCnt=0;BitCnt<8;BitCnt++)  //要传送的数据长度为8位
+  76   1          {
+  77   2           if((c<<BitCnt)&0x80)  SDA=1;   //判断发送位
+  78   2           else  SDA=0;                
+  79   2           _nop_();
+  80   2           SCL=1;               //置时钟线为高，通知被控器开始接收数据位
+  81   2           nop4(); 
+  82   2           _nop_();       
+  83   2           SCL=0; 
+  84   2          }  
+  85   1          _nop_();
+  86   1          _nop_();
+  87   1          SDA=1;               //8位发送完后释放数据线，准备接收应答位
+  88   1          _nop_();
+  89   1          _nop_();  
+  90   1          SCL=1;
+  91   1          _nop_();
+  92   1          _nop_();
+  93   1          _nop_();
+  94   1          if(SDA==1)ack=0;     
+  95   1             else ack=1;        //判断是否接收到应答信号
+  96   1          SCL=0;
+  97   1          _nop_();
+  98   1          _nop_();
+  99   1      }
+ 100          
+ 101          bit Write_Random_Address_Byte(unsigned char add,unsigned char dat)
+ 102          {
+ 103   1        Start();    //启动总线
+ 104   1        Write_A_Byte(add); //发送器件地址
+ 105   1          if(ack==0)return(0);
+ 106   1        Write_A_Byte(dat);   //发送数据
+ 107   1          if(ack==0)return(0);
+ 108   1        Stop(); //结束总线
+ 109   1          return(1);
+ 110   1      }
+ 111          //********************液晶屏使能*********************
+ 112          void Enable_LCD_write()
+ 113          {
+ 114   1          LCD_data|=(1<<(3-1));//E=1;
+ 115   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 116   1          delay_nus(2);
+C51 COMPILER V9.54   IICLCDTEST                                                            02/10/2020 13:20:54 PAGE 3   
+
+ 117   1          LCD_data&=~(1<<(3-1));//E=0;
+ 118   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 119   1      }
+ 120          
+ 121          //*************写命令****************************
+ 122          void LCD_write_command(unsigned char command)
+ 123          {
+ 124   1        delay_nus(16);
+ 125   1        LCD_data&=~(1<<(1-1));//RS=0;
+ 126   1        LCD_data&=~(1<<(2-1));//RW=0;
+ 127   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 128   1      
+ 129   1        LCD_data&=0x0f; //清高四位
+ 130   1        LCD_data|=command & 0xf0; //写高四位
+ 131   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 132   1          Enable_LCD_write();
+ 133   1      
+ 134   1        command=command<<4; //低四位移到高四位
+ 135   1        LCD_data&=0x0f; //清高四位
+ 136   1        LCD_data|=command&0xf0; //写低四位
+ 137   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 138   1          Enable_LCD_write();
+ 139   1      }
+ 140          //*************写数据****************************
+ 141          void LCD_write_data(unsigned char value) 
+ 142          {
+ 143   1        delay_nus(16);
+ 144   1        LCD_data|=(1<<(1-1));//RS=1;
+ 145   1        LCD_data&=~(1<<(2-1));//RW=0;
+ 146   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 147   1      
+ 148   1        LCD_data&=0X0f; //清高四位
+ 149   1        LCD_data|=value&0xf0; //写高四位
+ 150   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 151   1          Enable_LCD_write();
+ 152   1      
+ 153   1        value=value<<4; //低四位移到高四位
+ 154   1        LCD_data&=0x0f; //清高四位
+ 155   1        LCD_data|=value&0xf0; //写低四位
+ 156   1          Write_Random_Address_Byte(0x40,LCD_data);
+ 157   1          Enable_LCD_write();
+ 158   1      }
+ 159          
+ 160          //**********************设置显示位置*********************************
+ 161          void set_position(unsigned char x,unsigned char y)
+ 162          {
+ 163   1        unsigned char position;
+ 164   1        if (y == 0)
+ 165   1              position = 0x80 + x;
+ 166   1        else 
+ 167   1          position = 0xc0 + x;
+ 168   1          LCD_write_command(position);
+ 169   1      }
+ 170          //**********************显示字符串*****************************
+ 171          
+ 172          void display_string(unsigned char x,unsigned char y,unsigned char *s)
+ 173          { 
+ 174   1          set_position(x,y);
+ 175   1        while (*s) 
+ 176   1        {     
+ 177   2          LCD_write_data(*s);     
+ 178   2          s++;     
+C51 COMPILER V9.54   IICLCDTEST                                                            02/10/2020 13:20:54 PAGE 4   
+
+ 179   2        }
+ 180   1      }
+ 181          //********************显示数字*******************************xs
+ 182          void display_num(unsigned char x,unsigned char y,unsigned int num)
+ 183          { 
+ 184   1         unsigned char i,j,k,m,n;
+ 185   1         set_position(x,y);
+ 186   1          i=num/10000;
+ 187   1          j=num/1000%10; 
+ 188   1        k=num/100%10;
+ 189   1        m=num/10%10;
+ 190   1          n=num%10;
+ 191   1        LCD_write_data(digit[i]);    //将万位数字的字符常量写入LCD
+ 192   1        LCD_write_data(digit[j]);    //将千位数字的字符常量写入LCD
+ 193   1        LCD_write_data(digit[k]);
+ 194   1        LCD_write_data(digit[m]);
+ 195   1          LCD_write_data('.');
+ 196   1        LCD_write_data(digit[n]);
+ 197   1      }
+ 198          //*************液晶初始化****************************
+ 199          void LCD_init(void) 
+ 200          { 
+ 201   1        LCD_write_command(0x28);
+ 202   1        delay_nus(40); 
+ 203   1        LCD_write_command(0x28);
+ 204   1        delay_nus(40); 
+ 205   1          Enable_LCD_write();
+ 206   1        delay_nus(40);
+ 207   1        LCD_write_command(0x28); //4位显示！！！！！！！！！！！！！！！！！！
+ 208   1        LCD_write_command(0x0c); //显示开
+ 209   1        LCD_write_command(0x01); //清屏
+ 210   1        delay_nms(2);
+ 211   1      }
+ 212          //
+ 213          //********************按键*********************
+ 214          void button()
+ 215          {
+ 216   1          if(button1==0)
+ 217   1          {
+ 218   2          LCD_data|=(1<<(4-1));//E=1;
+ 219   2          Write_Random_Address_Byte(0x40,LCD_data);
+ 220   2          }
+ 221   1          if(button1==1)
+ 222   1          {
+ 223   2          LCD_data&=~(1<<(4-1));//E=0;
+ 224   2          Write_Random_Address_Byte(0x40,LCD_data);
+ 225   2          }
+ 226   1      }
+ 227          void main(void)
+ 228          {
+ 229   1        int i;
+ 230   1        LCD_init();
+ 231   1        display_string(0,0,"Hello Today!"); //显示一段文字
+ 232   1        while(1)
+ 233   1        { 
+ 234   2              button();
+ 235   2          display_num(0,1,i); 
+ 236   2          delay_nms(50);
+ 237   2          i++;
+ 238   2        }
+ 239   1      }
+
+C51 COMPILER V9.54   IICLCDTEST                                                            02/10/2020 13:20:54 PAGE 5   
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    578    ----
+   CONSTANT SIZE    =     24    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1      10
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

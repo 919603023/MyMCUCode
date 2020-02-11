@@ -1,0 +1,227 @@
+C51 COMPILER V9.54   DHT                                                                   02/10/2020 00:14:14 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE DHT
+OBJECT MODULE PLACED IN .\Objects\DHT.obj
+COMPILER INVOKED BY: D:\Apps\Keil\C51\BIN\C51.EXE DHT.c RTX51 OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listin
+                    -gs\DHT.lst) TABS(2) OBJECT(.\Objects\DHT.obj)
+
+line level    source
+
+   1          
+   2          #include<reg52.h>
+   3          #include<intrins.h>
+   4          #include"DHT.h"
+   5          #define uchar unsigned char
+   6          #define uint  unsigned int
+   7          #define IODATA  P1
+   8          //?????????
+   9          sbit E=P3^7;    //1602????
+  10          sbit RW=P3^6;    //1602????   
+  11          sbit RS=P3^5;    //1602??/??????
+  12          
+  13          
+  14          /********************************************************************
+  15          * ?? : delay()
+  16          * ?? : ??
+  17          * ?? : ?
+  18          * ?? : ?
+  19          ***********************************************************************/
+  20          
+  21          void delay1602()
+  22          {
+  23   1      _nop_();
+  24   1      _nop_();
+  25   1      }
+  26          
+  27          void Delay1602(uint del)
+  28          {
+  29   1      uint i,j;
+  30   1      for(i=0;i<del;i++)
+  31   1      for(j=0;j<=148;j++)
+  32   1      {
+  33   2      }   
+  34   1      }
+  35          /********************************************************************
+  36          * ?? : bit Busy(void)
+  37          * ?? : ??????????,???????????
+  38          * ?? : ??????
+  39          * ?? : ?
+  40          ***********************************************************************/
+  41          void Busy(void)
+  42          {
+  43   1      bit busy_flag = 1;
+  44   1      IODATA  = 0xff;
+  45   1      RS = 0;
+  46   1      delay1602();
+  47   1      RW = 1;
+  48   1      delay1602();
+  49   1      E = 1;
+  50   1      //Delay(1);
+  51   1      while(1)
+  52   1      {
+  53   2      busy_flag = (bit)(IODATA  & 0x80);
+  54   2      if(busy_flag == 0)
+C51 COMPILER V9.54   DHT                                                                   02/10/2020 00:14:14 PAGE 2   
+
+  55   2      {
+  56   3      break;
+  57   3      }
+  58   2      }
+  59   1      E = 0;
+  60   1      }
+  61          /********************************************************************
+  62          * ?? : wcmd(uchar del)
+  63          * ?? : 1602????
+  64          * ?? : ??????
+  65          * ?? : ?
+  66          ***********************************************************************/
+  67          void wcmd(uchar del)
+  68          {
+  69   1      RS = 0;
+  70   1      delay1602();
+  71   1      RW = 0;
+  72   1      delay1602();
+  73   1      E = 0;
+  74   1      delay1602();
+  75   1              IODATA  = del;
+  76   1      delay1602();
+  77   1      E = 1;
+  78   1      delay1602();
+  79   1      E = 0;
+  80   1      }
+  81          
+  82          /********************************************************************
+  83          * ?? : wdata(uchar del)
+  84          * ?? : 1602?????
+  85          * ?? : ????1602???
+  86          * ?? : ?
+  87          ***********************************************************************/
+  88          
+  89          void lcd1602_write_data(uchar del)
+  90          {
+  91   1      Busy();      
+  92   1      delay1602();
+  93   1      RS = 1;
+  94   1      delay1602();
+  95   1      RW = 0;
+  96   1      delay1602();
+  97   1      E = 0;
+  98   1      delay1602();
+  99   1      IODATA  = del;
+ 100   1              delay1602();
+ 101   1      E = 1;
+ 102   1      delay1602();
+ 103   1      E = 0;
+ 104   1      }
+ 105          
+ 106          /********************************************************************
+ 107          * ?? : L1602_init()
+ 108          * ?? : 1602???,???1602???
+ 109          * ?? : ?
+ 110          * ?? : ?
+ 111          ***********************************************************************/
+ 112          void lcd1602_init(void)
+ 113          {
+ 114   1      Delay1602(15);
+ 115   1      wcmd(0x38);
+ 116   1      Delay1602(5);
+C51 COMPILER V9.54   DHT                                                                   02/10/2020 00:14:14 PAGE 3   
+
+ 117   1      wcmd(0x38);
+ 118   1      Delay1602(5);
+ 119   1      wcmd(0x38);
+ 120   1      wcmd(0x38);
+ 121   1      Busy();
+ 122   1      wcmd(0x08);
+ 123   1      Busy();   
+ 124   1      wcmd(0x01);
+ 125   1      Busy();
+ 126   1      wcmd(0x06);
+ 127   1      Busy();
+ 128   1      wcmd(0x0c);
+ 129   1      }
+ 130          
+ 131          /********************************************************************
+ 132          * ?? : L1602_char(uchar hang,uchar lie,char sign)
+ 133          * ?? : ?????????,???????,???????"b" ,???????
+ 134          L1602_char(1,5,'b')
+ 135          * ?? : ?,?,????1602???
+ 136          * ?? : ?
+ 137          ***********************************************************************/
+ 138          void lcd1602_char(uchar hang,uchar lie,char sign)
+ 139          {
+ 140   1      uchar a;
+ 141   1      if(hang == 1)
+ 142   1      {
+ 143   2      a = 0x80;
+ 144   2      }
+ 145   1      if(hang == 2)
+ 146   1      {
+ 147   2      a = 0xc0;
+ 148   2      }
+ 149   1      a = a + lie - 1;
+ 150   1      Busy();
+ 151   1      wcmd(a);
+ 152   1      Busy();
+ 153   1      lcd1602_write_data(sign);
+ 154   1      }
+ 155          
+ 156          /********************************************************************
+ 157          * ?? : L1602_string(uchar hang,uchar lie,uchar *p)
+ 158          * ?? : ?????????,???????,?????????"ab cd ef" ,???????
+ 159          L1602_string(1,5,"ab cd ef;")
+ 160          * ?? : ?,?,????1602???
+ 161          * ?? : ?
+ 162          ***********************************************************************/
+ 163          void lcd1602_string(uchar hang,uchar lie,uchar *p)
+ 164          {
+ 165   1      uchar a;
+ 166   1      if(hang == 1)
+ 167   1      {
+ 168   2      a = 0x80;
+ 169   2      }
+ 170   1      if(hang == 2)
+ 171   1      {
+ 172   2      a = 0xc0;
+ 173   2      }
+ 174   1      a = a + lie - 1;
+ 175   1      while(1)
+ 176   1      {
+ 177   2      Busy();
+ 178   2      wcmd(a);
+C51 COMPILER V9.54   DHT                                                                   02/10/2020 00:14:14 PAGE 4   
+
+ 179   2      Busy();
+ 180   2      lcd1602_write_data(*p);
+ 181   2      a++;
+ 182   2      p++;   
+ 183   2      if((*p == '\0')||(a==0x90)||(a==0xd0))
+ 184   2      {
+ 185   3      break;
+ 186   3      }
+ 187   2      }
+ 188   1      }
+ 189          //????
+ 190          void lcd1602_locate(unsigned char x,unsigned char y)
+ 191          { unsigned char aa;
+ 192   1      if (x==1) aa=0x80;
+ 193   1      if (x==2) aa=0x80+0x40;
+ 194   1      Busy();
+ 195   1      wcmd(aa+y-1);
+ 196   1      Busy();
+ 197   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    264    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

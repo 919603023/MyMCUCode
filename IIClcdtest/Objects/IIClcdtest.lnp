@@ -1,0 +1,4 @@
+".\Objects\STARTUP.obj",
+".\Objects\IIClcdtest.obj" 
+TO ".\Objects\IIClcdtest" 
+PRINT(".\Listings\IIClcdtest.m51") RAMSIZE(256) 
