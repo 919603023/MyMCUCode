@@ -9,7 +9,15 @@
 #include "LiquidCrystal_I2C.h"
 #define _SS_MAX_RX_BUFF 128 // RX buffer size 
 SoftwareSerial mySerial(4, 3);
-
+byte smiley[8] = {    //1表示亮，0表示不亮，此例显示一个笑脸
+    B00000,
+    B10001,
+    B00000,
+    B00000,
+    B10001,
+    B01110,
+    B00000,
+};
 
 dht11 DHT11;
 unsigned long ledOn=2000,ledOff=2000; 
@@ -30,7 +38,8 @@ void setup()
   mySerial.begin(9600);
   GSM_init();    
   lcd.init();                  
-  lcd.backlight();  
+  lcd.backlight(); 
+  lcd.createChar(1,smiley); 
   pinMode(5,OUTPUT);//5引脚为继电器
   pinMode(6,OUTPUT);//6引脚为LED灯
          
@@ -122,8 +131,11 @@ void loop()
     {
       sprintf(Buf,"%s","Normal");
     }
-    sprintf(buf,"%d/%dC",DHT11.humidity,DHT11.temperature);
+    sprintf(buf,"%d%%/%d",DHT11.humidity,DHT11.temperature);
+    
     lcd.print(buf);
+    lcd.print((char)223);
+    lcd.print('C');   
     lcd.setCursor(8,1);
     lcd.print(Buf);
 }
