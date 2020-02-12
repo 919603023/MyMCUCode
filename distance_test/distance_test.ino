@@ -1,12 +1,7 @@
 //LingShun lab
-
 #include<stdio.h>
-#include "TimerOne.h"
 #include"dht11.h"
-
-
-#include"SoftwareSerial.h"
-dht11 DHT11;  
+#include"SoftwareSerial.h"  
 #define DHT11PIN 2 
 #include <Wire.h> 
 #include <stdio.h>
@@ -14,30 +9,35 @@ dht11 DHT11;
 #include "LiquidCrystal_I2C.h"
 #define _SS_MAX_RX_BUFF 128 // RX buffer size 
 SoftwareSerial mySerial(4, 3);
-int ledStatus = 1;
+
+
+dht11 DHT11;
 unsigned long ledOn=2000,ledOff=2000; 
 //实例化一个对象并设置LCD1602设备地址，这里的地址是0x3F，一般是0x20，或者0x27
 LiquidCrystal_I2C lcd(0x27,16,2);  
 String comdata = "";
-
 char *NumBuf[] = {"0030","0031","0032","0033","0034","0035","0036","0037","0038","0039"};
 char  *RH_TM_Buf = "5EA64E3AFF1A";//中文  度为:  的编码 
 char buff[] ="0891683110900805F011000D91688146255844F50008AA";//短信中心的编码//后面加数据长度和数据即可
 
 //0891683110908705F0040D91688146255844F50008022011413452230873AF58834FE1606F
 char _16[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+int ledStatus = 1;
+
 void setup()
 {
   Serial.begin(9600);
-mySerial.begin(9600);
-GSM_init();    
+  mySerial.begin(9600);
+  GSM_init();    
   lcd.init();                  
   lcd.backlight();  
+  pinMode(5,OUTPUT);//5引脚为继电器
+  pinMode(6,OUTPUT);//6引脚为LED灯
          
   //lcd.setCursor(0,0);                //设置显示位置为第一行第一个  
   //lcd.setCursor(0,1);                //设置显示位置为第二行第一个
-//Timer1.initialize(2000000);//初始化定时器为1s
- // Timer1.attachInterrupt( timerIsr );//设置中断回调函数
+  //Timer1.initialize(2000000);//初始化定时器为1s
+  // Timer1.attachInterrupt( timerIsr );//设置中断回调函数
 } 
 void loop()
 {
@@ -68,8 +68,7 @@ void loop()
     {
        if(Serial_Find(comdata,"73AF58834FE1606F") == 0)
        {
-        //组包
-        //
+        
         char buf[200] = "";
        Send_Sms(buf,Make_Sms(buf));
        }
@@ -95,6 +94,13 @@ void loop()
     comdata = "";
   
 }
+
+// unsigned int value=analogRead(A2);
+//  Serial.println(value,DEC);
+//  delay(50);
+
+
+
 }
  void timerIsr()//定时器中断处理函数
 {
@@ -103,8 +109,23 @@ void loop()
     lcd.clear();
     lcd.setCursor(0,0);
     char buf[20] ="";
+    char Buf[10] = "";
+    if(analogRead(A2) > 700)
+    {
+      sprintf(Buf,"%s","TooLight");
+    }
+    else if(analogRead(A2) < 150)
+    {
+      sprintf(Buf,"%s","TooDark");
+    }
+    else 
+    {
+      sprintf(Buf,"%s","Normal");
+    }
     sprintf(buf,"%d/%dC",DHT11.humidity,DHT11.temperature);
     lcd.print(buf);
+    lcd.setCursor(8,1);
+    lcd.print(Buf);
 }
 void GSM_init()
 {
@@ -114,9 +135,11 @@ void GSM_init()
   }
   delay(10000);
  Second_AT_Command("ATE0\n","OK",3000);
-  Second_AT_Command("AT+CNMI=3,2,0,0,0\n","OK",3000);
+ 
+ Second_AT_Command("AT+CNMI=3,2,0,0,0\n","OK",3000) && Second_AT_Command("AT+CMGF=0\n","OK",3000);
+ 
    
-Second_AT_Command("AT+CMGF=0\n","OK",3000);
+
 Second_AT_Command("AT+CPMS=\"SM\",\"SM\",\"SM\"\n","OK",3000);
 //Second_AT_Command("AT+CMGS=35\n",">",3000);
 //mySerial.write("0891683110900805F011000D91688146255844F50008AA144F604ED659884E86969458C176845FEB70B9505A");
@@ -226,6 +249,7 @@ int Send_Sms(char *sms,int len)
 
 int Make_Sms(char *buf)
 {
+ 
         char TM[9] = "";
         char RH[9] = "";
         if(DHT11.humidity/10 == 0)
@@ -251,11 +275,5 @@ int Make_Sms(char *buf)
         char bufp[10] = "";
         sprintf(bufp,"%c%c",_16[tmp/16],_16[tmp%16]);
         
-         sprintf(buf,"%s%s%s",buff,bufp,bufc);
-  Serial.println(tmp);
-  Serial.write(_16[tmp/16]); 
-  Serial.write(_16[tmp%16]);
-  
-  Serial.println((String(buf).length()-18)/2);
-return (strlen(buf)-18)/2;
+         sprintf(buf,"%s%s%s",buff,bufp,bufc);return (strlen(buf)-18)/2;
 }
