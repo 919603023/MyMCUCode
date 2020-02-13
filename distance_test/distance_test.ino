@@ -4,20 +4,14 @@
 #include"SoftwareSerial.h"  
 #define DHT11PIN 2 
 #include <Wire.h> 
-#include <stdio.h>
+
 #include<stdlib.h>
 #include "LiquidCrystal_I2C.h"
 #define _SS_MAX_RX_BUFF 128 // RX buffer size 
+#define LED_PIN 6
+#define RELAY_PIN   5
 SoftwareSerial mySerial(4, 3);
-byte smiley[8] = {    //1表示亮，0表示不亮，此例显示一个笑脸
-    B00000,
-    B10001,
-    B00000,
-    B00000,
-    B10001,
-    B01110,
-    B00000,
-};
+
 
 dht11 DHT11;
 unsigned long ledOn=2000,ledOff=2000; 
@@ -39,9 +33,9 @@ void setup()
   GSM_init();    
   lcd.init();                  
   lcd.backlight(); 
-  lcd.createChar(1,smiley); 
-  pinMode(5,OUTPUT);//5引脚为继电器
-  pinMode(6,OUTPUT);//6引脚为LED灯
+   
+  pinMode(RELAY_PIN,OUTPUT);//5引脚为继电器
+  pinMode(LED_PIN,OUTPUT);//6引脚为LED灯
          
   //lcd.setCursor(0,0);                //设置显示位置为第一行第一个  
   //lcd.setCursor(0,1);                //设置显示位置为第二行第一个
@@ -50,12 +44,13 @@ void setup()
 } 
 void loop()
 {
+  /*****显示刷新********************/
   unsigned long nowtime=millis(); //获取当前的系统运行时间长度
     if(ledStatus==1)             //如果当前lled灯状态为高电平，则执行该程序
     {
-      if(nowtime>ledOn)             //检测系统运行时间长度是否到500ms
+      if(nowtime>ledOn)             //检测系统运行时间长度是否到1000ms
       {
-        ledOn=nowtime;              //记录当前时间长度，第一次为500ms,赋值给ledOn
+        ledOn=nowtime;              //记录当前时间长度，第一次为1000ms,赋值给ledOn
         ledOff=nowtime+2000;         //计算出下一次led灯变化的时刻，第一次运行程序时应该在1000ms时关灯
             timerIsr();  //关掉led灯
         ledStatus=0;              //记录当前led灯状态，下一次使用     
@@ -71,36 +66,51 @@ void loop()
           ledStatus=1;
          }
       }
+      /*********************结束********************/
+      /********软串口接收信息*************************/
    if( MySerial_Save(1) >= 0)
    {
-    if(Serial_Find(comdata,"+CMT") == 0)
+    if(Serial_Find(comdata,"+CMT") == 0)// 收到短信 
     {
-       if(Serial_Find(comdata,"73AF58834FE1606F") == 0)
+       if(Serial_Find(comdata,"73AF58834FE1606F") == 0)//收到  环境信息
        {
         
         char buf[200] = "";
-       Send_Sms(buf,Make_Sms(buf));
+       Send_Sms(buf,Make_Sms(buf));//发送短信
        }
-       else if(Serial_Find(comdata,"73AF58834FE1606F") == 0)
+       else if(Serial_Find(comdata,"5F00706F") == 0)//开灯
        {
-        
+        digitalWrite(LED_PIN, HIGH);
+       }
+       else if(Serial_Find(comdata,"5173706F") == 0)//关灯
+       {
+        digitalWrite(LED_PIN, LOW);
+       }
+       else if(Serial_Find(comdata,"5F00753598CE6247") == 0)//开电风扇
+       {
+        digitalWrite(RELAY_PIN, HIGH);
+       }
+       else if(Serial_Find(comdata,"5173753598CE6247") == 0)//关电风扇
+       {
+        digitalWrite(RELAY_PIN, LOW);
        }
     }
-    Serial.println(comdata);
-    comdata = "";
-   }
+    Serial.println(comdata);//转发串口信息
     
+    comdata = "";//清除缓冲区
+   }
+  /*********结束***********************/
     
   if( MySerial_Save(2) >= 0){
     
-    if(Serial_Find(comdata,"SEND") == 0)
+    if(Serial_Find(comdata,"SEND") == 0)//串口调试：发送SEND发送短信
     {
         char buf[200] = "";
          
        Send_Sms(buf,Make_Sms(buf));
        }
-       mySerial.println(comdata);
-    comdata = "";
+       mySerial.println(comdata);//转发串口信息
+    comdata = "";//清空缓冲区
   
 }
 
@@ -150,12 +160,8 @@ void GSM_init()
  
  Second_AT_Command("AT+CNMI=3,2,0,0,0\n","OK",3000) && Second_AT_Command("AT+CMGF=0\n","OK",3000);
  
-   
-
 Second_AT_Command("AT+CPMS=\"SM\",\"SM\",\"SM\"\n","OK",3000);
-//Second_AT_Command("AT+CMGS=35\n",">",3000);
-//mySerial.write("0891683110900805F011000D91688146255844F50008AA144F604ED659884E86969458C176845FEB70B9505A");
-//mySerial.write(0x1a);
+
 }
 int Second_AT_Command( char *AT, char *Back,unsigned int OutTime)
 {
@@ -199,8 +205,6 @@ int Serial_Find(String comdata,char *Back)
 {
       if(comdata.indexOf(Back)!=-1)
       {
-       
-       //Serial.write(Back);
        return 0;
       }   
   return -1; 
@@ -280,9 +284,21 @@ int Make_Sms(char *buf)
         {
           sprintf(TM,"%s%s",NumBuf[DHT11.temperature/10],NumBuf[DHT11.temperature%10]);
         }
-        
-      char bufc[80] = "";
-        sprintf(bufc,"6E7F%s%s6E29%s%s",RH_TM_Buf,RH,RH_TM_Buf,TM);
+        char Buf[10] = "";
+    if(analogRead(A2) > 700)
+    {
+      sprintf(Buf,"%s","TooLight");
+    }
+    else if(analogRead(A2) < 150)
+    {
+      sprintf(Buf,"%s","TooDark");
+    }
+    else 
+    {
+      sprintf(Buf,"%s","Normal");
+    }
+         char bufc[100] = "";
+        sprintf(bufc,"6E7F%s%s6E29%s%s514971660C551B5003A%s",RH_TM_Buf,RH,RH_TM_Buf,TM,Buf);
          int tmp = strlen(bufc)/2;
         char bufp[10] = "";
         sprintf(bufp,"%c%c",_16[tmp/16],_16[tmp%16]);
