@@ -10,6 +10,7 @@
 #define _SS_MAX_RX_BUFF 128 // RX buffer size 
 #define LED_PIN 6
 #define RELAY_PIN   5
+#define LIGHT_PIN A2
 SoftwareSerial mySerial(4, 3);
 
 
@@ -285,18 +286,7 @@ int Make_Sms(char *buf)
           sprintf(TM,"%s%s",NumBuf[DHT11.temperature/10],NumBuf[DHT11.temperature%10]);
         }
         char Buf[10] = "";
-    if(analogRead(A2) > 700)
-    {
-      sprintf(Buf,"%s","TooLight");
-    }
-    else if(analogRead(A2) < 150)
-    {
-      sprintf(Buf,"%s","TooDark");
-    }
-    else 
-    {
-      sprintf(Buf,"%s","Normal");
-    }
+    
          char bufc[100] = "";
         sprintf(bufc,"6E7F%s%s6E29%s%s514971660C551B5003A%s",RH_TM_Buf,RH,RH_TM_Buf,TM,Buf);
          int tmp = strlen(bufc)/2;
@@ -304,4 +294,20 @@ int Make_Sms(char *buf)
         sprintf(bufp,"%c%c",_16[tmp/16],_16[tmp%16]);
         
          sprintf(buf,"%s%s%s",buff,bufp,bufc);return (strlen(buf)-18)/2;
+}
+
+void Get_Light(char *buf)
+{
+  if(analogRead(LIGHT_PIN) > 700)
+    {
+      sprintf(buf,"%s","TooLight");
+    }
+    else if(analogRead(LIGHT_PIN) < 150)
+    {
+      sprintf(buf,"%s","TooDark");
+    }
+    else 
+    {
+      sprintf(buf,"%s","Normal");
+    }
 }
