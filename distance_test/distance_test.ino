@@ -129,25 +129,15 @@ void loop()
     lcd.clear();
     lcd.setCursor(0,0);
     char buf[20] ="";
-    char Buf[10] = "";
-    if(analogRead(A2) > 700)
-    {
-      sprintf(Buf,"%s","TooLight");
-    }
-    else if(analogRead(A2) < 150)
-    {
-      sprintf(Buf,"%s","TooDark");
-    }
-    else 
-    {
-      sprintf(Buf,"%s","Normal");
-    }
-    sprintf(buf,"%d%%/%d",DHT11.humidity,DHT11.temperature);
     
+    sprintf(buf,"%d%%/%d",DHT11.humidity,DHT11.temperature);
     lcd.print(buf);
     lcd.print((char)223);
     lcd.print('C');   
+    
     lcd.setCursor(8,1);
+    char Buf[10] = "";
+    Get_Light(Buf);
     lcd.print(Buf);
 }
 void GSM_init()
