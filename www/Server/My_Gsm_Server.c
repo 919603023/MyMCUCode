@@ -87,6 +87,12 @@ void *deal_client(void *arg)
     msg.type = 10;
     strcpy(msg.data,buf);
     printf("服务器收到：%s\n",buf);
+if(strncmp(buf,"flush",5) == 0)
+{
+	char *data = "20:10:N:N:close";
+    send(new_fd,data,strlen(data),0);
+}
+
     if(strncmp(buf,"HEAD",4) != 0){
     msgsnd(ret_msg,&msg,sizeof(msg) - sizeof(long),IPC_NOWAIT);  }
     }
