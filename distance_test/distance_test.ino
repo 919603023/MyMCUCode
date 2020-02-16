@@ -14,7 +14,7 @@
 SoftwareSerial mySerial(4, 3);
 dht11 DHT11;
 int ledStatus = 1;
-int GSM_Init_Flag = 1;
+int GSM_Init_Flag = 0;
 unsigned long ledOn = 2000, ledOff = 2000;
 //实例化一个对象并设置LCD1602设备地址，这里的地址是0x3F，一般是0x20，或者0x27
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -91,14 +91,22 @@ void loop()
     else if (Serial_Find(comdata, "close") == 0)
     {
       digitalWrite(LED_PIN, LOW);
+      Serial.println("我是灯，我关了");
     }
     else if (Serial_Find(comdata, "open") == 0)
     {
       digitalWrite(LED_PIN, HIGH);
+      Serial.println("我是灯，我开了");
     }
     else if (Serial_Find(comdata, "flush") == 0) //收到TCP消息
     {
       //发送TCP数据包
+      Serial.println("我正在制作返回包");
+    }
+    else if(Serial_Find(comdata,"Call") == 0)
+    {
+      GSM_Init_Flag = 1;
+      Second_AT_Command("AT+CIPSTART=\"TCP\",\"129.211.89.48\",8000", "OK", 3000);  ;
     }
     Serial.println(comdata);
     comdata = "";
@@ -107,7 +115,7 @@ void loop()
   if (MySerial_Save(2) >= 0)
   {
 
-    if (Serial_Find(comdata, "SEND") == 0)
+    if (Serial_Find(comdata, "send") == 0)
     {
       char buf[300] = "";
 
@@ -144,7 +152,7 @@ void GSM_init()
   {
     delay(100);
   }
-  delay(10000);
+  
   Second_AT_Command("ATE0\n", "OK", 3000);
   Second_AT_Command("AT+CNMI=3,2,0,0,0\n", "OK", 3000);
 
@@ -179,7 +187,8 @@ int Serial_Init_Find(char *Back, unsigned int OutTime)
       {
         if (comdata.indexOf(Back) != -1)
         {
-          Serial.println("收到预定目标");
+          Serial.print("收到");
+          Serial.println(Back);
           return 0;
         }
         Serial.println(comdata);
