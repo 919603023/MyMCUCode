@@ -1,20 +1,21 @@
 #include <stdio.h>
 #include "dht11.h"
 #include "SoftwareSerial.h"
-
-#define DHT11PIN 2
 #include <Wire.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "LiquidCrystal_I2C.h"
+#define DHT11PIN 2
 #define _SS_MAX_RX_BUFF 128 // RX buffer size
-#define LED_PIN 6
 #define RELAY_PIN 5
 #define LIGHT_PIN A2
+#define HUORE A1
+#define ALARM 6
 SoftwareSerial mySerial(4, 3);
 dht11 DHT11;
 int ledStatus = 1;
 int GSM_Init_Flag = 0;
+int GET_ENV_Flag = 0;
 unsigned long ledOn = 2000, ledOff = 2000;
 //实例化一个对象并设置LCD1602设备地址，这里的地址是0x3F，一般是0x20，或者0x27
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -33,23 +34,21 @@ void setup()
   GSM_init();
   lcd.init();
   lcd.backlight();
-  pinMode(RELAY_PIN, OUTPUT); //5引脚为继电器
-  pinMode(LED_PIN, OUTPUT);   //6引脚为LED灯
+  pinMode(RELAY_PIN, OUTPUT); 
 }
 void loop()
 {
-  unsigned long nowtime = millis(); //获取当前的系统运行时间长度
-  if (ledStatus == 1)               //如果当前lled灯状态为高电平，则执行该程序
+  unsigned long nowtime = millis(); 
+  if (ledStatus == 1)               
   {
-    if (nowtime > ledOn) //检测系统运行时间长度是否到500ms
+    if (nowtime > ledOn) 
     {
-      ledOn = nowtime;         //记录当前时间长度，第一次为500ms,赋值给ledOn
-      ledOff = nowtime + 2000; //计算出下一次led灯变化的时刻，第一次运行程序时应该在1000ms时关灯
-      timerIsr();              //关掉led灯
-      ledStatus = 0;           //记录当前led灯状态，下一次使用
+      ledOn = nowtime;         
+      ledOff = nowtime + 2000; 
+      timerIsr();              
+      ledStatus = 0;           
     }
   }
-
   else
   {
     if (nowtime > ledOff)
@@ -67,51 +66,59 @@ void loop()
       if (Serial_Find(comdata, "73AF58834FE1606F") == 0)
       {
         //组包
-        //
         char buf[300] = "";
         Send_Sms(buf, Make_Sms(buf));
       }
       else if (Serial_Find(comdata, "5F00706F") == 0) //开灯
       {
-        digitalWrite(LED_PIN, HIGH);
+        digitalWrite(RELAY_PIN, HIGH);
       }
       else if (Serial_Find(comdata, "5173706F") == 0) //关灯
       {
-        digitalWrite(LED_PIN, LOW);
-      }
-      else if (Serial_Find(comdata, "5F00753598CE6247") == 0) //开电风扇
-      {
-        digitalWrite(RELAY_PIN, HIGH);
-      }
-      else if (Serial_Find(comdata, "5173753598CE6247") == 0) //关电风扇
-      {
         digitalWrite(RELAY_PIN, LOW);
+      }
+      else if(Serial_Find(comdata, "5F00542F68C06D4B6A215F0F") == 0)//开启检测模式
+      {
+        GET_ENV_Flag = 1;
+      }
+      else if(Serial_Find(comdata, "5F00542F68C06D4B6A215F0F") == 0)//关闭检测模式
+      {
+         GET_ENV_Flag = 0;
       }
     }
     else if (Serial_Find(comdata, "close") == 0)
     {
-      digitalWrite(LED_PIN, LOW);
-      Serial.println("我是灯，我关了");
+      digitalWrite(LED_PIN, LOW);  
     }
     else if (Serial_Find(comdata, "open") == 0)
     {
       digitalWrite(LED_PIN, HIGH);
-      Serial.println("我是灯，我开了");
     }
-    else if (Serial_Find(comdata, "flush") == 0) //收到TCP消息
+    else if (Serial_Find(comdata, "flush") == 0) 
     {
-      //发送TCP数据包
-      Serial.println("我正在制作返回包");
+      char *buf[100] = "";
+      Send_Tcp(buf);
     }
     else if(Serial_Find(comdata,"Call") == 0)
     {
       GSM_Init_Flag = 1;
-      Second_AT_Command("AT+CIPSTART=\"TCP\",\"129.211.89.48\",8000", "OK", 3000);  ;
+      Second_AT_Command("AT+CIPSTART=\"TCP\",\"129.211.89.48\",8000", "OK", 3000);
+      delay(1000);
+      Second_AT_Command("AT+CIPSTART=\"TCP\",\"129.211.89.48\",8000", "OK", 3000);
+      delay(1000);
+      Second_AT_Command("AT+CIPSTART=\"TCP\",\"129.211.89.48\",8000", "OK", 3000);
+    }
+    else if (Serial_Find(comdata, "GET_ENV_Flag1") == 0) 
+    {
+      GET_ENV_Flag = 1;
+    }
+    else if (Serial_Find(comdata, "GET_ENV_Flag0") == 0) 
+    {
+      GET_ENV_Flag = 0;
     }
     Serial.println(comdata);
     comdata = "";
   }
-
   if (MySerial_Save(2) >= 0)
   {
 
@@ -124,6 +131,7 @@ void loop()
     mySerial.println(comdata);
     comdata = "";
   }
+  Get_Env();
 }
 void timerIsr() //定时器中断处理函数
 {
@@ -152,13 +160,10 @@ void GSM_init()
   {
     delay(100);
   }
-  
   Second_AT_Command("ATE0\n", "OK", 3000);
   Second_AT_Command("AT+CNMI=3,2,0,0,0\n", "OK", 3000);
-
   Second_AT_Command("AT+CMGF=0\n", "OK", 3000);
   Second_AT_Command("AT+CPMS=\"SM\",\"SM\",\"SM\"\n", "OK", 3000);
-
 }
 int Second_AT_Command(char *AT, char *Back, unsigned int OutTime)
 {
@@ -176,7 +181,6 @@ int Serial_Init_Find(char *Back, unsigned int OutTime)
   while (millis() < nowtime + OutTime)
   {
     if (mySerial.available())
-
     {
       while (mySerial.available() > 0)
       {
@@ -201,20 +205,15 @@ int Serial_Init_Find(char *Back, unsigned int OutTime)
 int Serial_Find(String comdata, char *Back)
 {
   if (comdata.indexOf(Back) != -1)
-  {
-
-    //Serial.write(Back);
     return 0;
   }
   return -1;
 }
-
 int MySerial_Save(int type)
 {
   if (type == 1)
   {
     if (mySerial.available())
-
     {
       while (mySerial.available() > 0)
       {
@@ -231,7 +230,6 @@ int MySerial_Save(int type)
   else if (type == 2)
   {
     if (Serial.available())
-
     {
       while (Serial.available() > 0)
       {
@@ -278,8 +276,8 @@ int Make_Sms(char *buf)
   {
     sprintf(TM, "%s%s", NumBuf[DHT11.temperature / 10], NumBuf[DHT11.temperature % 10]);
   }
-
-  char Buf[10] = "";int a=Get_Light(Buf);
+  char Buf[10] = "";
+  int a=Get_Light(Buf);
   if (a == 1)
   {
     strcpy(Buf, "6B635E38");
@@ -290,17 +288,22 @@ int Make_Sms(char *buf)
   }
   else
   {
-    strcpy(Buf, "8FC74EAE");
+    strcpy(Buf, "8FC76697");
   }
+   char BUFF[10 ] = "";
+  if(analogRead(HUORE) > 600)
+    strcpy(BUFF,"517395ED");
+  else 
+    strcpy(BUFF,"62535F00");
+
   char BUF[6] = "";
   if (digitalRead(RELAY_PIN))
-
     strcpy(BUF, "5F00");
-
   else
     strcpy(BUF, "5173");
+  
   char bufc[200] = "";
-  sprintf(bufc, "6E7F%s%s6E29%s%s51497167FF1A%s706F003A%s", RH_TM_Buf, RH, RH_TM_Buf, TM, Buf, BUF);
+  sprintf(bufc, "6E7F%s%s00206E29%s%s002051497167FF1A%s002095E8FF1A%s0020706F003A%s", RH_TM_Buf, RH, RH_TM_Buf, TM, Buf, BUFF,BUF);
   int tmp = strlen(bufc) / 2;
   char bufp[10] = "";
   sprintf(bufp, "%c%c", _16[tmp / 16], _16[tmp % 16]);
@@ -329,5 +332,69 @@ int Get_Light(char *buf) //获取当前亮度信息，
   {
     sprintf(buf, "%s", "Normal");
     return 1;
+  }
+}
+void Make_Tcp(char *buf)
+{
+   char Buf[5] = "";
+  int a=Get_Light(Buf);
+  if (a == 1)
+  {
+    strcpy(Buf, "N");
+  }
+  else if (a > 1)
+  {
+    strcpy(Buf, "L");
+  }
+  else
+  {
+    strcpy(Buf, "D");
+  }
+  char BUFF[5] = "";
+  if(analogRead(HUORE) > 600)
+    strcpy(BUFF,"N");
+  else 
+    strcpy(BUFF,"D");
+  char BUF[6] = "";
+  if (digitalRead(RELAY_PIN))
+    strcpy(BUF, "open");
+  else
+    strcpy(BUF, "close");
+  sprintf(buf,"%d:%d:%s:%s:%s",DHT11.humidity,DTH11.temperature,Buf,BUFF,BUF);
+}
+int Send_Tcp(char *buf)
+{
+  if (Second_AT_Command("AT+CIPSEND", ">", 3000) == 0)
+  {
+    mySerial.write(buf);
+    mySerial.write(0x1a);
+  }
+}
+void Alarm()
+{
+  unsigned long nowtime = millis(); 
+  while (millis() > nowtime+5000)
+ {
+  for(i=0;i<80;i++) 
+    {
+      digitalWrite(buzzer,HIGH);
+      delay(1);
+      digitalWrite(buzzer,LOW);
+      delay(1);
+    }
+ } 
+}
+
+void Get_Env()
+{
+  char buf[15] = "";
+  if(GET_ENV_Flag  == 1)
+  {
+    if((analogRead(HUORE) < 600) || (Get_Light(buf) != 1) )
+    {
+      Alarm();
+      char buf[300] = "";
+      Send_Sms(buf, Make_Sms(buf));
+    }
   }
 }

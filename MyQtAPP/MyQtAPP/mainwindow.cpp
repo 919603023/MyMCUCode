@@ -9,12 +9,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->label_L->setText("光照传感器异常");
     ui->label_D->setText("异常");
-
-
-
     ui->label->setText("建立连接失败");
-    tcpSocket = new QTcpSocket(this);
     ui->pushButton_L->setText("点击开灯");
+    tcpSocket = new QTcpSocket(this);
     ui->label_L_Pic->setPixmap(QPixmap(":/light_down.png"));
     tcpSocket->connectToHost(QHostAddress("129.211.89.48"),8000);
     connect(tcpSocket, &QTcpSocket::connected,[=](){
@@ -84,11 +81,11 @@ void MainWindow::RecvStringHandle(QString buf)
         }
         if(lst[3] == "N")
         {
-            ui->label_D->setText("正常");
+            ui->label_D->setText("打开");
         }
         else
         {
-            ui->label_D->setText("异常");
+            ui->label_D->setText("关闭");
         }
         if(lst[4] == "open")
         {
