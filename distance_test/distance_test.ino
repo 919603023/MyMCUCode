@@ -11,6 +11,7 @@
 #define LIGHT_PIN A2
 #define HUORE A1
 #define ALARM 6
+#define buzzer 6
 SoftwareSerial mySerial(4, 3);
 dht11 DHT11;
 int ledStatus = 1;
@@ -27,6 +28,19 @@ char buff[] = "0891683110900805F011000D91688146255844F50008AA"; //短信中心�
 
 //0891683110908705F0040D91688146255844F50008022011413452230873AF58834FE1606F
 char _16[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+int MySerial_Save(int type);
+void GSM_init();
+int Second_AT_Command(char *AT, char *Back, unsigned int OutTime);
+int Serial_Init_Find(char *Back, unsigned int OutTime);
+int Serial_Find(String comdata, char *Back);
+int MySerial_Save(int type);
+int Make_Sms(char *buf);
+int Send_Sms(char *sms, int len);
+int Get_Light(char *buf) ;
+void Make_Tcp(char *buf);
+int Send_Tcp(char *buf);
+void Alarm();
+void Get_Env();
 void setup()
 {
   Serial.begin(9600);
@@ -88,15 +102,15 @@ void loop()
     }
     else if (Serial_Find(comdata, "close") == 0)
     {
-      digitalWrite(LED_PIN, LOW);  
+      digitalWrite(RELAY_PIN, LOW);  
     }
     else if (Serial_Find(comdata, "open") == 0)
     {
-      digitalWrite(LED_PIN, HIGH);
+      digitalWrite(RELAY_PIN, HIGH);
     }
     else if (Serial_Find(comdata, "flush") == 0) 
     {
-      char *buf[100] = "";
+      char buf[100] = "";
       Send_Tcp(buf);
     }
     else if(Serial_Find(comdata,"Call") == 0)
@@ -119,7 +133,7 @@ void loop()
     Serial.println(comdata);
     comdata = "";
   }
-  if (MySerial_Save(2) >= 0)
+  if(MySerial_Save(2) >= 0)
   {
 
     if (Serial_Find(comdata, "send") == 0)
@@ -156,6 +170,7 @@ void timerIsr() //定时器中断处理函数
 }
 void GSM_init()
 {
+  #if 0
   while (Second_AT_Command("AT\n", "OK", 3000) != 0)
   {
     delay(100);
@@ -164,6 +179,7 @@ void GSM_init()
   Second_AT_Command("AT+CNMI=3,2,0,0,0\n", "OK", 3000);
   Second_AT_Command("AT+CMGF=0\n", "OK", 3000);
   Second_AT_Command("AT+CPMS=\"SM\",\"SM\",\"SM\"\n", "OK", 3000);
+  #endif
 }
 int Second_AT_Command(char *AT, char *Back, unsigned int OutTime)
 {
@@ -206,7 +222,7 @@ int Serial_Find(String comdata, char *Back)
 {
   if (comdata.indexOf(Back) != -1)
     return 0;
-  }
+  
   return -1;
 }
 int MySerial_Save(int type)
@@ -360,7 +376,7 @@ void Make_Tcp(char *buf)
     strcpy(BUF, "open");
   else
     strcpy(BUF, "close");
-  sprintf(buf,"%d:%d:%s:%s:%s",DHT11.humidity,DTH11.temperature,Buf,BUFF,BUF);
+  //sprintf(buf,"%d:%d:%s:%s:%s",DHT11.humidity,DTH11.temperature,Buf,BUFF,BUF);
 }
 int Send_Tcp(char *buf)
 {
@@ -375,6 +391,7 @@ void Alarm()
   unsigned long nowtime = millis(); 
   while (millis() > nowtime+5000)
  {
+  int i;
   for(i=0;i<80;i++) 
     {
       digitalWrite(buzzer,HIGH);
